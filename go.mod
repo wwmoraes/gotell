@@ -5,6 +5,7 @@ go 1.22.5
 require (
 	github.com/XSAM/otelsql v0.32.0
 	github.com/go-logr/logr v1.4.2
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.53.0
 	go.opentelemetry.io/otel v1.28.0
