@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: 3
+
+dotenv:
+- .env.local
+- .env
+
+vars:
+  GO: '{{ .GO | default "go" }}'
+  FIX: >-
+    gci
+    gofmt
+    gofumpt
+    tagalign
+
+tasks:
+  build:
+    aliases: [default]
+    desc: Builds the binary.
+    deps:
+    - go:tidy
+    vars:
+      GOLANG_BUILD_FLAGS: >-
+        {{ .GOLANG_BUILD_FLAGS | default "" }}
+    cmds:
+    - >-
+      {{ .GO }} generate ./...
+    - >-
+      {{ .GO }} build
+      {{ .GOLANG_FLAGS }}
+      {{ .GOLANG_BUILD_FLAGS }}
+      ./...
+    sources:
+    - '**/*.go'
+    - go.sum
+    - exclude: '**/*_test.go'
+  test:
+    desc: Runs all tests.
+    deps:
+    - go:test:unit
+  lint:
+    desc: Runs static analysis on the code base.
+    deps:
+    - task: lint:code
+    - task: lint:markdown
+  fix:
+    desc: Runs linters that support fixing found issues.
+    cmd: >-
+      golangci-lint run
+      --fix
+      --out-format colored-line-number
+      --enable-only {{ .FIX | splitList " " | join "," | q }}
+  lint:code:
+    desc: Runs static analysis on the source code.
+    vars:
+      GOLANGCI_LINT_SARIF: '{{ .GOLANGCI_LINT_SARIF | default "golangci-lint.sarif" }}'
+    cmd: >-
+      golangci-lint run --show-stats=false --out-format sarif
+      | tee {{ .GOLANGCI_LINT_SARIF | q }}
+      | sarif-fmt
+      ; jq -e '[.runs[].results[] | select(.level == "error")] | length | . == 0'
+      {{ .GOLANGCI_LINT_SARIF | q }} > /dev/null
+    sources:
+    - cmd/**/*.go
+    - internal/**/*.go
+    - pkg/**/*.go
+    generates:
+    - '{{ .GOLANGCI_LINT_SARIF }}'
+  lint:markdown:
+    summary: Lints markdown files.
+    cmd: markdownlint .
+    sources:
+    - "**/*.md"
+  go:tidy:
+    summary: Updates Golang dependency references.
+    cmd: go mod tidy
+    sources:
+    - go.mod
+    - '**/*.go'
+    generates:
+    - go.sum
+  go:test:unit:
+    desc: Runs Golang unit tests.
+    cmds:
+    - mkdir -p coverage
+    - >-
+      {{ .GO }} test {{ .GOLANG_FLAGS }} {{ .GOLANG_TEST_FLAGS }} -coverprofile=coverage/unit.txt
+      ./{{ .GOLANG_TEST_PACKAGES | default "" | splitList " " | join "/... ./" }}/...
+    sources:
+    - '**/*.go'
+    generates:
+    - coverage/unit.txt

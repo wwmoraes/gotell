@@ -1,0 +1,15 @@
+{
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": [],
+  "files.exclude": {
+    "CODE_OF_CONDUCT.md": true,
+    "CONTRIBUTING.md": true,
+    "golangci-lint.sarif": true,
+    "SECURITY.md": true,
+    "LICENSE": true,
+    ".editorconfig": true,
+    ".gitignore": true,
+    ".typos.toml": true,
+    ".task/checksum": true
+  }
+}
