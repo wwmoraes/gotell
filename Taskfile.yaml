@@ -7,6 +7,9 @@ dotenv:
 
 vars:
   GO: '{{ .GO | default "go" }}'
+  GOLANG_FLAGS: '{{ .GOLANG_FLAGS | default "-race -mod=readonly" }}'
+  GOLANG_BUILD_FLAGS: '{{ .GOLANG_BUILD_FLAGS | default "-trimpath" }}'
+  GOLANG_TEST_FLAGS: '{{ .GOLANG_TEST_FLAGS | default "-v -shuffle on" }}'
   FIX: >-
     gci
     gofmt
