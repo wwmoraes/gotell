@@ -44,16 +44,16 @@ tasks:
   lint:
     desc: Runs static analysis on the code base.
     deps:
-    - task: lint:code
-    - task: lint:markdown
-  fix:
+    - task: go:lint
+    - task: markdown:lint
+  go:fix:
     desc: Runs linters that support fixing found issues.
     cmd: >-
       golangci-lint run
       --fix
       --out-format colored-line-number
       --enable-only {{ .FIX | splitList " " | join "," | q }}
-  lint:code:
+  go:lint:
     desc: Runs static analysis on the source code.
     vars:
       GOLANGCI_LINT_SARIF: '{{ .GOLANGCI_LINT_SARIF | default "golangci-lint.sarif" }}'
@@ -69,7 +69,7 @@ tasks:
     - pkg/**/*.go
     generates:
     - '{{ .GOLANGCI_LINT_SARIF }}'
-  lint:markdown:
+  markdown:lint:
     summary: Lints markdown files.
     cmd: markdownlint .
     sources:

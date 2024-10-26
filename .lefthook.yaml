@@ -9,35 +9,40 @@ commit-msg:
 pre-commit:
   piped: true
   commands:
-    typos:
+    go:fix:
+      priority: 1
+      run: task go:fix {staged_files}
+      glob: "**/*.go"
+      stage_fixed: true
+    typos:lint:
       priority: 1
       run: typos --force-exclude {staged_files}
       exclude: .*\.(jpg|png)$
-    checktask:
+    task:lint:
       priority: 1
       run: task -a -j > /dev/null
       glob: Taskfile.yaml
-    editorconfig-checker:
+    editorconfig:lint:
       priority: 1
       run: editorconfig-checker ${ARGS} {staged_files}
       env:
         ARGS: ""
       exclude: .*\.(jpg|png)$
     ## TODO XML/HTML lint
-    gofumpt:
-      priority: 1
-      run: gofumpt -l -w {staged_files}
-      glob: "**/*.go"
-      stage_fixed: true
-    lint-markdown:
+    # gofumpt:
+    #   priority: 1
+    #   run: gofumpt -l -w {staged_files}
+    #   glob: "**/*.go"
+    #   stage_fixed: true
+    markdown:lint:
       priority: 10
-      run: task lint:markdown
+      run: task markdown:lint
       glob: "**/*.md"
-    golangci-lint:
+    go:lint:
       priority: 10
-      run: task lint:code
+      run: task go:lint
       glob: "**/*.go"
-    tidy:
+    go:tidy:
       priority: 40
       run: task go:tidy
       glob: "{**/*.go,go.mod}"

@@ -134,7 +134,8 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 
 ## 🔧 Built Using
 
-- [OpenTelemetry Go SDK](https://opentelemetry.io/docs/languages/go/) - Core telemetry engine
+- [OpenTelemetry Go SDK](https://opentelemetry.io/docs/languages/go/) - Core
+telemetry engine
 - [Go](https://go.dev) - Programming language
 
 ## 🧑‍💻 Authors
