@@ -224,13 +224,14 @@ linters-settings:
     - anon
     - empty
     - error
-    - stdlib
     - generic
+    - stdlib
     # Telemetry
+    - "github\\.com/go-logr/logr\\.LogSink$"
+    - "github\\.com/wwmoraes/gotell\\.Option$"
     - "go\\.opentelemetry\\.io/otel/log"
     - "go\\.opentelemetry\\.io/otel/metric"
     - "go\\.opentelemetry\\.io/otel/trace"
-    - "github\\.com/go-logr/logr\\.LogSink$"
   lll:
     line-length: 120
     tab-width: 2

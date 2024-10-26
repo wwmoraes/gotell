@@ -35,44 +35,110 @@ const (
 	NAME = "github.com/wwmoraes/gotell"
 )
 
-// Initialize sets up OpenTelemetry log, metric and trace providers. It uses
-// the upstream SDK environment variables as much as possible. The deviations
-// are:
+// Options contains initialization properties that users can customize
+type Options struct {
+	LogsExporter    sdklog.Exporter
+	MetricsExporter sdkmetric.Exporter
+	Propagator      propagation.TextMapPropagator
+	TracesExporter  sdktrace.SpanExporter
+}
+
+// Option represents an object that can modify a set of initialization options
+type Option interface {
+	Apply(opts *Options) error
+}
+
+// OptionFn is a function that implements Option
+type OptionFn func(opts *Options) error
+
+// Apply executes the function to apply its changes
+func (fn OptionFn) Apply(opts *Options) error {
+	return fn(opts)
+}
+
+// NewOptions creates a new Options object, applies any Option to it, and
+// ensures defaults apply before returning a valid object
+func NewOptions(ctx context.Context, options ...Option) (*Options, error) {
+	opts := &Options{} //nolint:exhaustruct // we set defaults below
+
+	options = append(options,
+		withDefaultPropagator(),
+		withDefaultLogsExporter(ctx),
+		withDefaultMetricsExporter(ctx),
+		withDefaultTracesExporter(ctx),
+	)
+
+	var err error
+	for _, option := range options {
+		err = option.Apply(opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply option: %w", err)
+		}
+	}
+
+	return opts, nil
+}
+
+// WithLogsExporter sets a custom logs exporter
+func WithLogsExporter(exporter sdklog.Exporter) Option {
+	return OptionFn(func(opts *Options) error {
+		opts.LogsExporter = exporter
+
+		return nil
+	})
+}
+
+// WithMetricsExporter sets a custom metrics exporter
+func WithMetricsExporter(exporter sdkmetric.Exporter) Option {
+	return OptionFn(func(opts *Options) error {
+		opts.MetricsExporter = exporter
+
+		return nil
+	})
+}
+
+// WithTracesExporter sets a custom span exporter
+func WithTracesExporter(exporter sdktrace.SpanExporter) Option {
+	return OptionFn(func(opts *Options) error {
+		opts.TracesExporter = exporter
+
+		return nil
+	})
+}
+
+// WithPropagator sets a custom propagator
+func WithPropagator(propagator propagation.TextMapPropagator) Option {
+	return OptionFn(func(opts *Options) error {
+		opts.Propagator = propagator
+
+		return nil
+	})
+}
+
+// Initialize sets up OpenTelemetry log, metric and trace providers. It provides
+// sane and configurable defaults. Those use upstream SDK environment variables
+// as much as possible.
 //
-//   - defaults to use both W3C Trace Context and W3C Baggage (OTEL_PROPAGATORS isn't supported by the Golang SDK)
+// This function is re-entrant but not idempotent: multiple calls yields new
+// pointers for defaults. This is rarely what you want. It covers the use-case
+// of an application initiatizing instrumentation in the main body as early
+// as possible.
+//
+// As for the SDK environment variables, there's a few caveats:
+//
+//   - use both W3C Trace Context and W3C Baggage (OTEL_PROPAGATORS isn't supported by the Golang SDK)
 //   - uses OTLP exporters over gRPC (ignores OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER and OTEL_TRACES_EXPORTER)
 //   - uses batch processors for spans and logs
 //   - uses a periodic reader processor for metrics
 //
 // See https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
-func Initialize(ctx context.Context, res *resource.Resource) error {
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{},
-			propagation.Baggage{},
-		),
-	)
-
-	logExporter, err := otlploggrpc.New(ctx,
-		otlploggrpc.WithEndpointURL(getLogsEndpoint()),
-	)
+func Initialize(ctx context.Context, res *resource.Resource, options ...Option) error {
+	opts, err := NewOptions(ctx, options...)
 	if err != nil {
-		return fmt.Errorf("failed to create an OTLP log exporter: %w", err)
+		return fmt.Errorf("failed to build options: %w", err)
 	}
 
-	metricExporter, err := otlpmetricgrpc.New(ctx,
-		otlpmetricgrpc.WithEndpointURL(getMetricEndpoint()),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create an OTLP metric exporter: %w", err)
-	}
-
-	traceExporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpointURL(getTracesEndpoint()),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create an OTLP trace exporter: %w", err)
-	}
+	otel.SetTextMapPropagator(opts.Propagator)
 
 	res, err = mergeResources(res)
 	if err != nil {
@@ -81,17 +147,17 @@ func Initialize(ctx context.Context, res *resource.Resource) error {
 
 	otel.SetTracerProvider(sdktrace.NewTracerProvider(
 		sdktrace.WithResource(res),
-		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithBatcher(opts.TracesExporter),
 	))
 
 	otel.SetMeterProvider(sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter)),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(opts.MetricsExporter)),
 	))
 
 	global.SetLoggerProvider(sdklog.NewLoggerProvider(
 		sdklog.WithResource(res),
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(opts.LogsExporter)),
 	))
 
 	//nolint:wrapcheck // no need to bloat this one
@@ -241,4 +307,70 @@ func mergeResources(res *resource.Resource) (*resource.Resource, error) {
 	}
 
 	return res, nil
+}
+
+func withDefaultPropagator() Option {
+	return OptionFn(func(opts *Options) error {
+		if opts.Propagator != nil {
+			return nil
+		}
+
+		opts.Propagator = propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		)
+
+		return nil
+	})
+}
+
+func withDefaultLogsExporter(ctx context.Context) Option {
+	return OptionFn(func(opts *Options) error {
+		if opts.LogsExporter != nil {
+			return nil
+		}
+
+		logsExporter, err := otlploggrpc.New(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create an OTLP log exporter: %w", err)
+		}
+
+		opts.LogsExporter = logsExporter
+
+		return nil
+	})
+}
+
+func withDefaultMetricsExporter(ctx context.Context) Option {
+	return OptionFn(func(opts *Options) error {
+		if opts.MetricsExporter != nil {
+			return nil
+		}
+
+		metricsExporter, err := otlpmetricgrpc.New(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create an OTLP metric exporter: %w", err)
+		}
+
+		opts.MetricsExporter = metricsExporter
+
+		return nil
+	})
+}
+
+func withDefaultTracesExporter(ctx context.Context) Option {
+	return OptionFn(func(opts *Options) error {
+		if opts.TracesExporter != nil {
+			return nil
+		}
+
+		tracesExporter, err := otlptracegrpc.New(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create an OTLP trace exporter: %w", err)
+		}
+
+		opts.TracesExporter = tracesExporter
+
+		return nil
+	})
 }
