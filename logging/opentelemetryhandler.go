@@ -21,11 +21,10 @@ type OpenTelemetryHandler struct {
 // Enabled returns true if the OpenTelemetry logger emits records for this
 // context and level.
 func (handler *OpenTelemetryHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	record := log.Record{}
+	param := log.EnabledParameters{}
+	param.SetSeverity(slogLevel2otelSeverity(level))
 
-	record.SetSeverity(slogLevel2otelSeverity(level))
-
-	return handler.Logger.Enabled(ctx, record)
+	return handler.Logger.Enabled(ctx, param)
 }
 
 // Handle emits an OpenTelemetry log entry with the data from the record.
