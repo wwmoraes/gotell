@@ -7,7 +7,7 @@
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/wwmoraes/gotell.svg)](https://github.com/wwmoraes/gotell/pulls)
 ![Codecov](https://img.shields.io/codecov/c/github/wwmoraes/gotell)
 
-![GitHub branch status](https://img.shields.io/github/checks-status/wwmoraes/gotell/master)
+![GitHub branch status](https://img.shields.io/github/checks-status/wwmoraes/gotell/main)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
 
 ---
