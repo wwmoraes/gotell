@@ -27,8 +27,8 @@ type StandardLogSink struct {
 // to the standard error descriptor.
 func NewStandardLogSink() *StandardLogSink {
 	return &StandardLogSink{
-		stdout: log.New(os.Stdout, "", 0),
-		stderr: log.New(os.Stderr, "", 0),
+		stdout: log.New(os.Stdout, "", log.LstdFlags),
+		stderr: log.New(os.Stderr, "", log.LstdFlags),
 		values: map[any]any{},
 	}
 }
@@ -42,14 +42,14 @@ func (*StandardLogSink) Enabled(_ int) bool {
 func (sink *StandardLogSink) Error(err error, msg string, keysAndValues ...any) {
 	values := mergeMaps(sink.values, kv2Map(keysAndValues...))
 
-	sink.stderr.Printf("%s: %s [%s]", msg, err.Error(), mapString(values))
+	sink.stderr.Printf("%s: %s%s", err.Error(), msg, mapString(values))
 }
 
 // Info prints a log message on the standard output descriptor.
 func (sink *StandardLogSink) Info(_ int, msg string, keysAndValues ...any) {
 	values := mergeMaps(sink.values, kv2Map(keysAndValues...))
 
-	sink.stdout.Printf("%s [%s]", msg, mapString(values))
+	sink.stdout.Printf("%s%s", msg, mapString(values))
 }
 
 // Init does nothing. It exists to satisfy the logr.LogSink interface.
@@ -74,7 +74,17 @@ func (sink *StandardLogSink) WithName(name string) logr.LogSink {
 }
 
 func mergeMaps(maps ...map[any]any) map[any]any {
-	values := make(map[any]any)
+	var length int
+
+	for _, entry := range maps {
+		length += len(entry)
+	}
+
+	if length == 0 {
+		return nil
+	}
+
+	values := make(map[any]any, length)
 
 	for _, entry := range maps {
 		for k, v := range entry {
@@ -95,16 +105,20 @@ func kv2Map(keysAndValues ...any) map[any]any {
 	return values
 }
 
-func mapString(m map[any]any) string {
-	entries := make([]string, 0, len(m))
+func mapString(kvs map[any]any) string {
+	if len(kvs) == 0 {
+		return ""
+	}
 
-	for k, v := range m {
+	var result strings.Builder
+
+	for k, v := range kvs {
 		if k == nil || v == nil {
 			continue
 		}
 
-		entries = append(entries, fmt.Sprintf("%v=%v", k, v))
+		result.WriteString(fmt.Sprintf(" %v=%v", k, v))
 	}
 
-	return strings.Join(entries, ",")
+	return result.String()
 }
