@@ -49,14 +49,25 @@ type MetricHandlerFn[T any] func(http.Handler, http.ResponseWriter, *http.Reques
 // response writer capable of reporting status and written bytes length.
 type MiddlewareWrapperFn func(ctx context.Context, w ResponseWriter, handle func())
 
-// SpanNameFormatter builds a HTTP span name based on the operation name and
-// request method. It uses the request URI if operation is empty.
+// SpanNameFormatter builds a HTTP span name using the method as prefix and
+// operation. It fallsback to the request line (as per RFC 7230 section 3.1.1.)
+// if operation is empty.
 func SpanNameFormatter(operation string, req *http.Request) string {
-	if operation == "" {
-		operation = req.RequestURI
+	if req == nil {
+		return operation
 	}
 
-	return req.Method + " " + operation
+	if operation != "" {
+		return req.Method + " " + operation
+	}
+
+	// server-side requests
+	if req.RequestURI != "" {
+		return req.RequestURI
+	}
+
+	// client-side requests
+	return req.Method + " " + req.URL.Path + " " + req.Proto
 }
 
 // WithInstrumentationMiddleware creates and enriches a span with HTTP request
