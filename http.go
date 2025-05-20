@@ -185,8 +185,14 @@ func WithMetrics(next http.RoundTripper) http.RoundTripper {
 func FilterHeaders(headers http.Header, includedKeys ...string) http.Header {
 	target := make(http.Header, len(includedKeys))
 
+	var values []string
 	for _, key := range includedKeys {
-		target[key] = headers.Values(key)
+		values = headers.Values(key)
+		if values == nil {
+			continue
+		}
+
+		target[key] = values
 	}
 
 	return target
