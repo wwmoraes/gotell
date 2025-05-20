@@ -212,13 +212,13 @@ func FilterHeaders(headers http.Header, includedKeys ...string) http.Header {
 // SpanStatusForStatusCode assigns a span code and message for a HTTP status
 // code.
 func SpanStatusForStatusCode(statusCode int) (codes.Code, StatusText) {
+	code := codes.Unset
+
 	if statusCode >= http.StatusBadRequest {
-		return codes.Error, http.StatusText(statusCode)
+		code = codes.Error
+	} else if statusCode >= http.StatusOK {
+		code = codes.Ok
 	}
 
-	if statusCode >= http.StatusOK {
-		return codes.Ok, http.StatusText(statusCode)
-	}
-
-	return codes.Unset, ""
+	return code, http.StatusText(statusCode)
 }
