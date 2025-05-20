@@ -151,6 +151,11 @@ func WithHistogramMiddleware[T Number](
 // metrics.
 func WithMetrics(next http.RoundTripper) http.RoundTripper {
 	return RoundTripperFn(func(req *http.Request) (*http.Response, error) {
+		// we just pretend we didn't see anything...
+		if req == nil {
+			return next.RoundTrip(req)
+		}
+
 		start := time.Now()
 		res, err := next.RoundTrip(req)
 		end := time.Since(start)
@@ -160,7 +165,15 @@ func WithMetrics(next http.RoundTripper) http.RoundTripper {
 		attrs := metric.WithAttributes(labeler.Get()...)
 		httpClientRequestDuration().Record(ctx, end.Seconds(), attrs)
 		httpClientRequestBodySize().Record(ctx, float64(req.ContentLength), attrs)
-		httpClientResponseBodySize().Record(ctx, float64(res.ContentLength), attrs)
+
+		var contentLength int64
+
+		// response may be nil, such as on context cancellation
+		if res != nil {
+			contentLength = res.ContentLength
+		}
+
+		httpClientResponseBodySize().Record(ctx, float64(contentLength), attrs)
 
 		//nolint:wrapcheck // passthrough
 		return res, err
